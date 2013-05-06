@@ -10,11 +10,11 @@ namespace WSDLMerge
     {
         static void Main ( string[] args )
         {
-            Console.WriteLine("WSDLMerge 1.0");
-            Console.WriteLine("Copyright (c) 2011 by Lenard Gunda");
+            Console.WriteLine("WSDLMerge 1.1");
+            Console.WriteLine("Copyright (c) 2011-2013 by Lenard Gunda");
             Console.WriteLine("");
 
-            if ( args.Length < 2 )
+            if ( args.Length < 1 )
             {
                 Usage ();
                 return;
@@ -22,6 +22,10 @@ namespace WSDLMerge
             
             string sourceFilename = args[0];
             string destinationFilename = null;
+            if (args.Length > 1)
+            {
+                destinationFilename = args[1];
+            }
 
             if (Uri.IsWellFormedUriString(sourceFilename, UriKind.Absolute))
             {

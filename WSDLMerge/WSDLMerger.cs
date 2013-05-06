@@ -128,12 +128,18 @@ namespace WSDLMerge
         {
             Dictionary<string, XmlElement> schemas = new Dictionary<string, XmlElement> ();
 
-            XmlElement schemaElement = typesElement.SelectSingleNode ( "xsd:schema", manager ) as XmlElement;
+            XmlNodeList schemaNodes = typesElement.SelectNodes ( "xsd:schema", manager );
+            List<XmlNode> removeList = new List<XmlNode>();
+            foreach (XmlElement schemaElement in schemaNodes)
+	        {
+                ProcessSchema ( filename, wsdl, schemaElement, manager, schemas, 0 );
+                removeList.Add(schemaElement);
+            }
 
-            ProcessSchema ( filename, wsdl, schemaElement, manager, schemas, 0 );
-
-            XmlNode schemaNode = typesElement.SelectSingleNode ( "xsd:schema", manager );
-            typesElement.RemoveChild ( schemaNode );
+            foreach (XmlNode node in removeList)
+            {
+                typesElement.RemoveChild(node);
+            }
 
             foreach ( var schema in schemas.Values )
             {
@@ -157,7 +163,9 @@ namespace WSDLMerge
                 string importNamespace, importLocation;
                 GetImportDetails ( node, filename, out importNamespace, out importLocation );
 
-                if ( schemas.ContainsKey ( importNamespace ) ) continue;
+                string schemasKey = importNamespace + "{" + importLocation + "}";
+
+                if ( schemas.ContainsKey ( schemasKey ) ) continue;
 
                 if ( importLocation == null ) throw new InvalidOperationException ();
 
@@ -168,22 +176,12 @@ namespace WSDLMerge
                 schemaDocument.Load ( importLocation );
 
                 XmlElement newSchema = wsdl.ImportNode ( schemaDocument.DocumentElement, true ) as XmlElement;
-                XmlNodeList newImports = newSchema.SelectNodes ( "/xsd:import", manager );
-                foreach ( XmlNode importNode in newImports )
-                {
-                    if ( level == 0 )
-                    {
-                        newSchema.RemoveChild ( importNode );
-                    }
-                    else
-                    {
-                        if ( importNode.Attributes["schemaLocation"] != null )
-                        {
-                            importNode.Attributes.RemoveNamedItem ( "schemaLocation" );
-                        }
-                    }
-                }
-                schemas.Add ( importNamespace, newSchema );
+                
+                ProcessSchemaInnerImports(manager, level, newSchema);
+
+                ProcessSchemaIncludes(manager, filename, wsdl, newSchema);
+
+                schemas.Add ( schemasKey, newSchema );
 
                 ProcessSchema (
                     importLocation,
@@ -192,6 +190,67 @@ namespace WSDLMerge
                     PrepareNamespaceManager ( schemaDocument ),
                     schemas,
                     level + 1 );
+            }
+        }
+
+        /// <summary>
+        /// Process include statements in the schema file
+        /// </summary>
+        /// <param name="manager"></param>
+        /// <param name="wsdl"></param>
+        /// <param name="filename"></param>
+        /// <param name="newSchema"></param>
+        private static void ProcessSchemaIncludes(XmlNamespaceManager manager, string filename, XmlDocument wsdl, XmlElement newSchema)
+        {
+            XmlNodeList includes = newSchema.SelectNodes("/xsd:include", manager);
+            foreach (XmlNode includeNode in includes)
+            {
+                string importNamespace;
+                string importLocation;
+
+                GetImportDetails ( includeNode, filename, out importNamespace, out importLocation );
+
+                Console.WriteLine("  + include file: {0}", importLocation);
+
+                XmlDocument schemaDocument = new XmlDocument();
+                schemaDocument.Load(importLocation);
+
+                XmlElement includedSchema = wsdl.ImportNode(schemaDocument.DocumentElement, true) as XmlElement;
+                XmlNode[] childNodes = new XmlNode[includedSchema.ChildNodes.Count];
+                for (int i = 0; i < includedSchema.ChildNodes.Count; i++)
+			    {
+                        childNodes[i] = includedSchema.ChildNodes[i];
+			    }
+                foreach (XmlNode child in childNodes )
+                {
+                    includeNode.ParentNode.InsertAfter(child, includeNode);
+                }
+                includeNode.ParentNode.RemoveChild(includeNode);
+            }
+        }
+
+        /// <summary>
+        /// Process import statements in the schema files
+        /// </summary>
+        /// <param name="manager"></param>
+        /// <param name="level"></param>
+        /// <param name="newSchema"></param>
+        private static void ProcessSchemaInnerImports(XmlNamespaceManager manager, int level, XmlElement newSchema)
+        {
+            XmlNodeList newImports = newSchema.SelectNodes("/xsd:import", manager);
+            foreach (XmlNode importNode in newImports)
+            {
+                if (level == 0)
+                {
+                    newSchema.RemoveChild(importNode);
+                }
+                else
+                {
+                    if (importNode.Attributes["schemaLocation"] != null)
+                    {
+                        importNode.Attributes.RemoveNamedItem("schemaLocation");
+                    }
+                }
             }
         }
 
@@ -211,8 +270,15 @@ namespace WSDLMerge
             if ( node is XmlElement )
             {
                 XmlElement importElement = node as XmlElement;
-
-                importNamespace = importElement.Attributes["namespace"].Value;
+                XmlAttribute a = importElement.Attributes["namespace"];
+                if (a != null)
+                {
+                    importNamespace = a.Value;
+                }
+                else
+                {
+                    importNamespace = null;
+                }
 
                 if ( importElement.Attributes["schemaLocation"] != null )
                 {
