@@ -132,8 +132,10 @@ namespace WSDLMerge
             List<XmlNode> removeList = new List<XmlNode>();
             foreach (XmlElement schemaElement in schemaNodes)
 	        {
-                ProcessSchema ( filename, wsdl, schemaElement, manager, schemas, 0 );
-                removeList.Add(schemaElement);
+                if (ProcessSchema(filename, wsdl, schemaElement, manager, schemas, 0))
+                {
+                    removeList.Add(schemaElement);
+                }
             }
 
             foreach (XmlNode node in removeList)
@@ -147,7 +149,7 @@ namespace WSDLMerge
             }
         }
 
-        private static void ProcessSchema ( 
+        private static bool ProcessSchema ( 
             string filename, 
             XmlDocument wsdl, 
             XmlElement rootElement, 
@@ -157,6 +159,7 @@ namespace WSDLMerge
         {
             XmlNodeList imports;
             imports = rootElement.SelectNodes ( "xsd:import", manager );
+            if (imports.Count == 0) return false;
 
             foreach ( XmlNode node in imports )
             {
@@ -191,6 +194,8 @@ namespace WSDLMerge
                     schemas,
                     level + 1 );
             }
+
+            return true;
         }
 
         /// <summary>

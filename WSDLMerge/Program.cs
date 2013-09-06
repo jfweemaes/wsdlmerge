@@ -10,7 +10,7 @@ namespace WSDLMerge
     {
         static void Main ( string[] args )
         {
-            Console.WriteLine("WSDLMerge 1.1");
+            Console.WriteLine("WSDLMerge 1.2");
             Console.WriteLine("Copyright (c) 2011-2013 by Lenard Gunda");
             Console.WriteLine("");
 
