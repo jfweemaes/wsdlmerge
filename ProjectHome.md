@@ -1,0 +1,1 @@
+# WSDLMerge is now available from https://github.com/lenardg/WSDLMerge #
